@@ -10,48 +10,111 @@ import (
 	"strings"
 )
 
-type kvPair struct {
-	k string
-	v string
-}
-
-//待替换的相关字符串
-var kvPairs = []kvPair{
-	{")and", ") and"},
-	{"and(", "and ("},
-	{")or", ") or"},
-	{"or(", "or ("},
-	{"0 and 0", "0"},
-	{"1 and 1", "1"},
-	{"0 and 1", "0"},
-	{"1 and 0", "0"},
-	{"0 or 0", "0"},
-	{"1 or 1", "1"},
-	{"0 or 1", "1"},
-	{"1 or 0", "1"},
-	{"(0)", "0"},
-	{"(1)", "1"},
-	{"  ", " "},
-	{"( ", "("},
-	{" )", ")"}}
-
-//计算最简单的逻辑表达式: 1 and 0 and 0 and (1 or 0 or 1)
-//类似于在MYSQL中执行对应SQL: SELECT 1 and 0 and 0 and (1 or 0 or 1)
-//字符串中只能包含：0,1,and,or,(,)这几个字符串
 func IsTrue(s string) (bool, error) {
 	original := s
-	s = strings.ToLower(s)
+	s = fmtStr(s)
 	for {
-		pre := s
-		for i := range kvPairs {
-			s = strings.Replace(s, kvPairs[i].k, kvPairs[i].v, -1)
-			if len(s) == 1 {
-				return s == "1", nil
-			}
+		if len(s) == 1 {
+			break
 		}
-		//处理一轮后，还和上一轮一样，那么就不合法
-		if pre == s {
+		pre := s
+		//处理and {"0 and 0", "0"},{"0 and 1", "0"},{"1 and 1", "1"},{"1 and 0", "0"}
+		s = cleanAnd(s)
+		if len(s) == 1 {
+			break
+		}
+		//处理带括号的OR {"(0 or 0", "(0"},{"(0 or 1", "(1"},{"(1 or 1", "(1"},{"(1 or 0", "(1"}
+		s = cleanOrHasParentheses(s)
+		if len(s) == 1 {
+			break
+		}
+		//处理清洗完成后的括号{"(0)", "0"},{"(1)", "1"}
+		s = cleanParentheses(s)
+		if len(s) == 1 {
+			break
+		}
+		//再处理一次and {"0 and 0", "0"},{"0 and 1", "0"},{"1 and 1", "1"},{"1 and 0", "0"}
+		s = cleanAnd(s)
+		if len(s) == 1 {
+			break
+		}
+		//处理普通的OR 	{"0 or 0", "0"},{"0 or 1", "1"},{"1 or 1", "1"},{"1 or 0", "1"}
+		s = cleanOr(s)
+		if s == pre {
 			return false, errors.New("the input is invalid, please check:" + original)
 		}
 	}
+	return s == "1", nil
+}
+
+//处理and {"0 and 0", "0"},{"0 and 1", "0"},{"1 and 1", "1"},{"1 and 0", "0"}
+func cleanAnd(s string) string {
+	for {
+		pre := s
+		for i := range kvPairsAnd {
+			s = strings.Replace(s, kvPairsAnd[i].k, kvPairsAnd[i].v, -1)
+		}
+		//替换完一轮后，还和原值相等，则跳出循环
+		if pre == s {
+			break
+		}
+	}
+	return s
+}
+
+//处理带括号的OR {"(0 or 0", "(0"},{"(0 or 1", "(1"},{"(1 or 1", "(1"},{"(1 or 0", "(1"}
+func cleanOrHasParentheses(s string) string {
+	for {
+		pre := s
+		for i := range kvPairsOrHasParentheses {
+			s = strings.Replace(s, kvPairsOrHasParentheses[i].k, kvPairsOrHasParentheses[i].v, -1)
+		}
+		if pre == s {
+			break
+		}
+	}
+	return s
+}
+
+//处理普通的OR 	{"0 or 0", "0"},{"0 or 1", "1"},{"1 or 1", "1"},{"1 or 0", "1"}
+func cleanOr(s string) string {
+	for {
+		pre := s
+		for i := range kvPairsOr {
+			s = strings.Replace(s, kvPairsOr[i].k, kvPairsOr[i].v, -1)
+		}
+		if pre == s {
+			break
+		}
+	}
+	return s
+}
+
+//处理清洗完成后的括号{"(0)", "0"},{"(1)", "1"}
+func cleanParentheses(s string) string {
+	for {
+		pre := s
+		for i := range kvPairsParentheses {
+			s = strings.Replace(s, kvPairsParentheses[i].k, kvPairsParentheses[i].v, -1)
+		}
+		if pre == s {
+			break
+		}
+	}
+	return s
+}
+
+//规范化数据
+func fmtStr(s string) string {
+	s = strings.ToLower(s)
+	for i := range kvPairsForFmt {
+		for {
+			pre := strings.Replace(s, kvPairsForFmt[i].k, kvPairsForFmt[i].v, -1)
+			if pre == s {
+				break
+			}
+			s = pre
+		}
+	}
+	return s
 }
