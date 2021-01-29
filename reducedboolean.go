@@ -28,18 +28,12 @@ func IsTrue(s string) (bool, error) {
 		if len(s) == 1 {
 			break
 		}
-		//处理清洗完成后的括号{"(0)", "0"},{"(1)", "1"}
-		s = cleanParentheses(s)
-		if len(s) == 1 {
-			break
-		}
-		//再处理一次and {"0 and 0", "0"},{"0 and 1", "0"},{"1 and 1", "1"},{"1 and 0", "0"}
-		s = cleanAnd(s)
-		if len(s) == 1 {
-			break
-		}
+
 		//处理普通的OR 	{"0 or 0", "0"},{"0 or 1", "1"},{"1 or 1", "1"},{"1 or 0", "1"}
-		s = cleanOr(s)
+		//只有在不包含括号的情况下，才允许处理or
+		if !strings.Contains(s, "(") {
+			s = cleanOr(s)
+		}
 		if s == pre {
 			return false, errors.New("the input is invalid, please check:" + original)
 		}
@@ -59,7 +53,7 @@ func cleanAnd(s string) string {
 			break
 		}
 	}
-	return s
+	return cleanParentheses(s)
 }
 
 //处理带括号的OR {"(0 or 0", "(0"},{"(0 or 1", "(1"},{"(1 or 1", "(1"},{"(1 or 0", "(1"}
@@ -73,11 +67,13 @@ func cleanOrHasParentheses(s string) string {
 			break
 		}
 	}
-	return s
+	return cleanParentheses(s)
 }
 
 //处理普通的OR 	{"0 or 0", "0"},{"0 or 1", "1"},{"1 or 1", "1"},{"1 or 0", "1"}
+//处理OR之前，要确保处理完所有的and
 func cleanOr(s string) string {
+	s = cleanAnd(s)
 	for {
 		pre := s
 		for i := range kvPairsOr {
